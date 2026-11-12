@@ -47,6 +47,7 @@ body {
   padding: 7px 14px;
   font-size: 13px;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .btn:hover { background: #f0f2f0; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -157,8 +158,20 @@ body.no-image .panel { opacity: 0.55; pointer-events: none; }
 /* Step chain */
 .steps { list-style: none; margin: 0; padding: 0; }
 .steps li { position: relative; padding-left: 30px; padding-bottom: 8px; }
-.steps li.step { display: flex; align-items: center; gap: 4px; }
+.steps li.step { display: flex; align-items: center; gap: 6px; }
 .steps li.step .step-card { flex: 1; min-width: 0; }
+.steps li.step.enter { animation: step-in 0.2s ease-out; }
+.steps li.step.leaving {
+  opacity: 0; transform: translateX(14px); pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+.step-toggle {
+  flex: none; width: 15px; height: 15px; margin: 0;
+  accent-color: var(--accent); cursor: pointer;
+}
 .steps li:last-child { padding-bottom: 0; }
 .steps li::before { /* spine */
   content: ""; position: absolute; left: 10px; top: 24px; bottom: -2px;
@@ -182,9 +195,11 @@ li.origin .node::after, li.output .node::after {
   border: 1px solid var(--line); border-radius: var(--radius-s);
   padding: 6px 8px; background: var(--surface);
   width: 100%; text-align: left; cursor: pointer; font-size: 13px; color: var(--ink);
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
 .step-card:hover { border-color: var(--accent); }
 .step-card.active { border-color: var(--accent); background: #f2f8f3; }
+.step-card.off { opacity: 0.55; border-style: dashed; }
 .step-text { flex: 1; min-width: 0; }
 .step-text b { display: block; font-weight: 600; font-size: 13px; }
 .step-text i { display: block; font-style: normal; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -204,13 +219,14 @@ li.origin .node::after, li.output .node::after {
 .endpoint b { font-weight: 600; color: var(--ink); }
 
 /* Tool grid + panel */
-.toolgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.toolgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .toolgrid button {
   display: flex; align-items: center; gap: 8px;
   border: 1px solid var(--line); background: var(--surface);
   border-radius: var(--radius-s); padding: 8px 10px;
   font-size: 13px; cursor: pointer; color: var(--ink);
   position: relative;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .toolgrid button:hover { border-color: var(--accent); }
 .toolgrid button[aria-expanded="true"] { border-color: var(--accent); background: #f2f8f3; }
@@ -220,8 +236,19 @@ li.origin .node::after, li.output .node::after {
   width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
 }
 .toolpanel {
-  margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px;
+  display: grid; grid-template-rows: 0fr;
+  opacity: 0; visibility: hidden;
+  margin-top: 0; padding-top: 0;
+  border-top: 1px solid transparent;
+  transition: grid-template-rows 0.22s ease, opacity 0.18s ease,
+    margin-top 0.22s ease, padding-top 0.22s ease, visibility 0.22s;
 }
+.toolpanel.open {
+  grid-template-rows: 1fr; opacity: 1; visibility: visible;
+  margin-top: 10px; padding-top: 8px;
+  border-top-color: var(--line);
+}
+.toolpanel-inner { overflow: hidden; min-height: 0; }
 .toolpanel-head { display: flex; align-items: center; justify-content: space-between; }
 .toolpanel-head h3 { margin: 0; font-size: 13px; }
 .toolbody { margin-top: 2px; }
@@ -235,6 +262,7 @@ li.origin .node::after, li.output .node::after {
   padding: 6px 13px;
   font-size: 13px;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .pills.small button { padding: 4px 10px; font-size: 12px; }
 .pills button[aria-pressed="true"] {
@@ -275,5 +303,15 @@ input[type="checkbox"] { accent-color: var(--accent); }
   max-width: min(90vw, 560px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
   z-index: 50;
+  animation: toast-in 0.2s ease-out;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 .toast.error { background: var(--danger); }

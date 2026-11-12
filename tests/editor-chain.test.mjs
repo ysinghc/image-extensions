@@ -49,6 +49,22 @@ test("crop feature is fully removed", () => {
   }
 });
 
+test("steps can be toggled on and off", () => {
+  const js = read("src/editor.js");
+  assert.ok(/step-toggle/.test(js), "step cards must offer an on/off toggle");
+  assert.ok(/enabled/.test(js), "steps must carry an enabled flag");
+  assert.ok(/enabled (===|!==) false/.test(js), "pipeline must bypass disabled steps");
+});
+
+test("interface animates state changes and respects reduced motion", () => {
+  const css = read("src/editor.css");
+  assert.ok(/@keyframes step-in/.test(css), "new steps must animate in");
+  assert.ok(/\.toolpanel\.open/.test(css), "tool panel must expand smoothly");
+  assert.ok(/transition/.test(css), "controls must transition state changes");
+  const reduce = css.match(/prefers-reduced-motion[^]*?\{[^]*?\}/g) || [];
+  assert.ok(reduce.length > 0, "must respect reduced motion");
+});
+
 test("export stays a single terminal section", () => {
   const html = read("src/editor.html");
   assert.ok(/id="exportCard"/.test(html), "must have #exportCard");

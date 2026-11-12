@@ -15,8 +15,8 @@ fixes. If you're on an older store version, update first.
 **Do not open a public issue for security problems.**
 
 Use [private vulnerability reporting](../../security/advisories/new) on this
-repository (Security tab → Advisories → Report a vulnerability). If that isn't
-available, contact the maintainer through their GitHub profile.
+repository (Security tab → Advisories → Report a vulnerability), or email
+ysinghcin@gmail.com directly.
 
 Please include:
 

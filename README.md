@@ -19,6 +19,7 @@ Everything runs locally in your browser. No uploads, no accounts.
 - **Quality slider** for lossy formats, JPEG/BMP matte colour for transparency
 - **File-size limit**: enter “≤ 50 KB” and it lowers quality first, then
   shrinks pixels until it fits
+- **Step chain** with reorder and per-step on/off switches to A/B each edit
 - **Rotate / flip / grayscale**
 - **Quick actions**: right-click → *Download as PNG/JPEG/WebP* without
   opening the editor; popup does one-click convert & download

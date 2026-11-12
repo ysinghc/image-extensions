@@ -68,8 +68,13 @@ const S = {
   encodeSupport: {},
   lastBlob: null, lastDims: { w: 0, h: 0 }, lastEncodeKey: "",
   pipeCache: { key: "", canvas: null, w: 0, h: 0, log: [] },
+  renderedSteps: [],
   fitting: false,
 };
+
+function reducedMotion() {
+  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 const TOOL_TITLES = { resize: "Resize", rotate: "Rotate & flip", adjust: "Adjust" };
 const SCALE_PRESETS = [25, 50, 75, 100, 150, 200, 300];
@@ -125,7 +130,7 @@ function setStep(tool, params) {
   } else if (i >= 0) {
     S.steps[i].params = params;
   } else {
-    S.steps.push({ tool, params });
+    S.steps.push({ tool, params, enabled: true });
   }
   S.pipeCache.key = "";
 }
@@ -147,6 +152,10 @@ function renderPipeline(upto = Infinity) {
   let h = S.srcH;
   const log = [];
   for (const st of S.steps.slice(0, upto)) {
+    if (st.enabled === false) {
+      log.push({ w, h }); // bypassed: dims pass through unchanged
+      continue;
+    }
     if (st.tool === "rotate") {
       const d = rotateDims(w, h, st.params.rotate);
       src = renderToCanvas(src, {
@@ -324,12 +333,22 @@ function renderSteps() {
   S.steps.forEach((st, i) => {
     const li = document.createElement("li");
     li.className = "step";
+    if (!S.renderedSteps.includes(st)) li.classList.add("enter");
+    const on = st.enabled !== false;
     const input = i === 0 ? { w: S.srcW, h: S.srcH } : full.log[i - 1];
     const out = full.log[i];
     li.innerHTML = `<span class="node" aria-hidden="true">${i + 1}</span>`;
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.className = "step-toggle";
+    toggle.checked = on;
+    toggle.dataset.i = String(i);
+    toggle.title = on ? `Turn ${TOOL_TITLES[st.tool]} off` : `Turn ${TOOL_TITLES[st.tool]} on`;
+    toggle.setAttribute("aria-label", `${TOOL_TITLES[st.tool]} step on/off`);
+    li.appendChild(toggle);
     const card = document.createElement("button");
     card.type = "button";
-    card.className = "step-card" + (S.activeTool === st.tool ? " active" : "");
+    card.className = "step-card" + (S.activeTool === st.tool ? " active" : "") + (on ? "" : " off");
     card.dataset.edit = String(i);
     card.title = `Edit ${TOOL_TITLES[st.tool]}`;
     const label = document.createElement("span");
@@ -373,7 +392,37 @@ function renderSteps() {
   end.innerHTML = `<span class="node" aria-hidden="true"></span>
     <div class="endpoint"><b>Output</b> · ${dimsStr(d)}${S.fit && S.fit.scale < 0.999 ? ` · scaled ${Math.round(S.fit.scale * 100)}%` : ""}</div>`;
   els.stepsList.appendChild(end);
+  S.renderedSteps = [...S.steps];
   syncToolGrid();
+}
+
+/** Capture row positions, mutate, then replay the delta as motion (FLIP). */
+function flipAround(mutate) {
+  if (reducedMotion()) {
+    mutate();
+    return null;
+  }
+  const before = new Map();
+  els.stepsList.querySelectorAll("li.step").forEach((li, idx) => {
+    before.set(S.steps[idx], li.getBoundingClientRect().top);
+  });
+  mutate();
+  return before;
+}
+
+function flipPlay(before) {
+  if (!before) return;
+  els.stepsList.querySelectorAll("li.step").forEach((li, idx) => {
+    const prev = before.get(S.steps[idx]);
+    if (prev === undefined) return;
+    const dy = prev - li.getBoundingClientRect().top;
+    if (Math.abs(dy) > 1) {
+      li.animate(
+        [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
+        { duration: 200, easing: "ease-out" },
+      );
+    }
+  });
 }
 
 function syncToolGrid() {
@@ -399,7 +448,7 @@ function syncToolGrid() {
 function openTool(tool) {
   if (!S.bitmap) return;
   S.activeTool = tool;
-  els.toolPanel.classList.remove("hidden");
+  els.toolPanel.classList.add("open");
   els.toolTitle.textContent = TOOL_TITLES[tool];
   for (const [name, panel] of Object.entries(els.panels)) {
     panel.classList.toggle("hidden", name !== tool);
@@ -411,7 +460,7 @@ function openTool(tool) {
 
 function closeTool() {
   S.activeTool = null;
-  els.toolPanel.classList.add("hidden");
+  els.toolPanel.classList.remove("open");
   refreshPreview();
   renderSteps();
 }
@@ -716,7 +765,8 @@ async function setSource(blob, baseName) {
   S.lastBlob = null;
   S.lastEncodeKey = "";
   S.pipeCache = { key: "", canvas: null, w: 0, h: 0, log: [] };
-  els.toolPanel.classList.add("hidden");
+  S.renderedSteps = [];
+  els.toolPanel.classList.remove("open");
   els.grayscale.checked = false;
   setFitStatus("Lowers quality first, then shrinks pixels if needed.");
 
@@ -725,6 +775,12 @@ async function setSource(blob, baseName) {
   document.body.classList.remove("no-image");
   renderSteps();
   refreshPreview();
+  if (!reducedMotion()) {
+    els.previewWrap.animate(
+      [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "translateY(0)" }],
+      { duration: 240, easing: "ease-out" },
+    );
+  }
   await refreshEncode();
 }
 
@@ -735,8 +791,9 @@ function resetAll() {
     steps: [], activeTool: null, fit: null,
     filenameDirty: false, lastBlob: null, lastEncodeKey: "",
     pipeCache: { key: "", canvas: null, w: 0, h: 0, log: [] },
+    renderedSteps: [],
   });
-  els.toolPanel.classList.add("hidden");
+  els.toolPanel.classList.remove("open");
   els.grayscale.checked = false;
   els.previewWrap.classList.add("hidden");
   els.emptyState.classList.remove("hidden");
@@ -903,20 +960,40 @@ function wireEvents() {
       const i = parseInt(actionBtn.dataset.i, 10);
       const action = actionBtn.dataset.action;
       if (action === "remove") {
-        S.steps.splice(i, 1);
-        S.pipeCache.key = "";
+        const st = S.steps[i];
+        if (!st) return;
+        const commit = () => {
+          const j = S.steps.indexOf(st);
+          if (j >= 0) S.steps.splice(j, 1);
+          S.pipeCache.key = "";
+          afterStepsChanged();
+        };
+        if (reducedMotion()) {
+          commit();
+        } else {
+          const li = actionBtn.closest("li.step");
+          if (li) li.classList.add("leaving");
+          setTimeout(commit, 180);
+        }
+      } else if (action === "up" || action === "down") {
+        const before = flipAround(() => moveStep(i, action === "up" ? -1 : 1));
         afterStepsChanged();
-      } else if (action === "up") {
-        moveStep(i, -1);
-        afterStepsChanged();
-      } else if (action === "down") {
-        moveStep(i, 1);
-        afterStepsChanged();
+        flipPlay(before);
       }
       return;
     }
     const card = e.target.closest("button[data-edit]");
     if (card) openTool(S.steps[parseInt(card.dataset.edit, 10)].tool);
+  });
+
+  els.stepsList.addEventListener("change", (e) => {
+    const toggle = e.target.closest(".step-toggle");
+    if (!toggle) return;
+    const st = S.steps[parseInt(toggle.dataset.i, 10)];
+    if (!st) return;
+    st.enabled = toggle.checked;
+    S.pipeCache.key = "";
+    afterStepsChanged();
   });
 
   document.addEventListener("keydown", (e) => {
