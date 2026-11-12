@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Unit tests
+        run: node --test tests/core.test.mjs
+
+      - name: Syntax check
+        run: |
+          for f in src/lib/image-core.js src/editor.js src/popup.js src/background.js; do
+            node --check "$f"
+          done
+
+      - name: Validate manifests
+        run: |
+          python3 - <<'EOF'
+          import json
+          chrome = json.load(open('src/manifest.chrome.json'))
+          firefox = json.load(open('src/manifest.firefox.json'))
+          assert chrome['manifest_version'] == 3
+          assert firefox['manifest_version'] == 3
+          assert chrome['version'] == firefox['version'], 'manifest versions diverged'
+          assert chrome['background'] == {'service_worker': 'background.js'}
+          assert firefox['background'] == {'scripts': ['background.js']}
+          print('manifests OK, version', chrome['version'])
+          EOF
+
+      - name: Build packages
+        run: ./build.sh
+
+      - name: Verify packaged references
+        run: |
+          python3 - <<'EOF'
+          import json, os, re
+          for target in ('chrome', 'firefox'):
+              d = f'dist-{target}'
+              m = json.load(open(f'{d}/manifest.json'))
+              refs = ['popup.html', 'background.js', *m['icons'].values(),
+                      *m['action']['default_icon'].values()]
+              for html in ('popup.html', 'editor.html'):
+                  txt = open(f'{d}/{html}').read()
+                  refs += re.findall(r'(?:src|href)="([^"#]+)"', txt)
+              missing = [r for r in set(refs)
+                         if not r.startswith(('http', 'data:')) and not os.path.exists(f'{d}/{r}')]
+              assert not missing, f'{target}: missing {missing}'
+              print(target, 'references OK')
+          EOF
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: imageforge-packages
+          path: imageforge-*.zip

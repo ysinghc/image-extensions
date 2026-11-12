@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>html,body{width:380px}</style>
+<title>ImageForge</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img src="icons/icon.svg" alt="" width="22" height="22">
+    <strong>ImageForge</strong>
+  </div>
+  <button id="btnEditor" class="btn small" title="Open the full editor">Full editor</button>
+</header>
+
+<section class="group">
+  <div class="urlrow">
+    <input id="urlInput" type="url" placeholder="Paste image link…" spellcheck="false">
+    <button id="btnGo" class="btn primary small">Go</button>
+  </div>
+  <div class="btnrow">
+    <button id="btnUpload" class="btn small">Upload</button>
+    <input id="fileInput" type="file" accept="image/*" hidden>
+    <button id="btnPaste" class="btn small">Paste</button>
+    <span class="tip">or press Ctrl+V</span>
+  </div>
+</section>
+
+<section class="group hidden" id="loadedGroup">
+  <div class="preview">
+    <img id="thumb" alt="Loaded image preview">
+    <p id="srcInfo">—</p>
+  </div>
+  <div class="pills small" id="formatRow" role="radiogroup" aria-label="Output format"></div>
+  <div class="row" id="qualityRow">
+    <label for="quality">Quality <span id="qualityVal">85</span>%</label>
+    <input id="quality" type="range" min="1" max="100" value="85">
+  </div>
+  <div class="row">
+    <label for="maxSide">Longest side</label>
+    <select id="maxSide">
+      <option value="0">Original size</option>
+      <option value="1920">1920 px</option>
+      <option value="1280">1280 px</option>
+      <option value="800">800 px</option>
+      <option value="512">512 px</option>
+      <option value="256">256 px</option>
+    </select>
+    <label for="targetKB" class="target">≤ <input id="targetKB" type="number" min="1" max="51200" placeholder="KB"></label>
+  </div>
+</section>
+
+<footer>
+  <button id="btnConvert" class="btn primary grow" disabled>Convert &amp; download</button>
+  <button id="btnSendEditor" class="btn" disabled title="Send this image to the full editor">Edit</button>
+</footer>
+<p id="status" class="status">Paste a link, upload, or paste an image.</p>
+
+<script type="module" src="popup.js"></script>
+</body>
+</html>

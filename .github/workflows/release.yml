@@ -1,0 +1,45 @@
+name: Release
+
+# Cut a release by tagging:  git tag v1.0.0 && git push origin v1.0.0
+# The tag must match the version in both manifests.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check tag matches manifest version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          CHROME=$(python3 -c "import json;print(json.load(open('src/manifest.chrome.json'))['version'])")
+          FIREFOX=$(python3 -c "import json;print(json.load(open('src/manifest.firefox.json'))['version'])")
+          echo "tag=$TAG chrome=$CHROME firefox=$FIREFOX"
+          test "$TAG" = "$CHROME" || { echo "tag v$TAG != chrome manifest $CHROME"; exit 1; }
+          test "$TAG" = "$FIREFOX" || { echo "tag v$TAG != firefox manifest $FIREFOX"; exit 1; }
+
+      - name: Unit tests
+        run: node --test tests/core.test.mjs
+
+      - name: Build packages
+        run: ./build.sh
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            imageforge-*-chrome.zip imageforge-*-firefox.zip \
+            --title "ImageForge $GITHUB_REF_NAME" \
+            --generate-notes
