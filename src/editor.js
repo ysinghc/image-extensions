@@ -30,7 +30,9 @@ const els = {
   btnNew: $("btnNew"), btnDownloadTop: $("btnDownloadTop"), topOut: $("topOut"),
   dropzone: $("dropzone"), emptyState: $("emptyState"),
   previewWrap: $("previewWrap"), previewCanvas: $("previewCanvas"),
-  cropLayer: $("cropLayer"), cropBox: $("cropBox"), srcInfo: $("srcInfo"),
+  cropLayer: $("cropLayer"), cropBox: $("cropBox"),
+  shades: { top: $("shadeTop"), right: $("shadeRight"), bottom: $("shadeBottom"), left: $("shadeLeft") },
+  cropFloatApply: $("cropFloatApply"), srcInfo: $("srcInfo"),
   stepsList: $("stepsList"), noSteps: $("noSteps"),
   toolGrid: $("toolGrid"), toolPanel: $("toolPanel"),
   toolTitle: $("toolTitle"), toolClose: $("toolClose"),
@@ -619,13 +621,53 @@ function layoutCropBox() {
   const kx = rect.width / input.w;
   const ky = rect.height / input.h;
   const d = S.cropDraft;
-  els.cropBox.style.left = `${ox + d.x * input.w * kx}px`;
-  els.cropBox.style.top = `${oy + d.y * input.h * ky}px`;
-  els.cropBox.style.width = `${Math.max(2, d.w * input.w * kx)}px`;
-  els.cropBox.style.height = `${Math.max(2, d.h * input.h * ky)}px`;
+  const bx = ox + d.x * input.w * kx;
+  const by = oy + d.y * input.h * ky;
+  const bw = Math.max(2, d.w * input.w * kx);
+  const bh = Math.max(2, d.h * input.h * ky);
+  els.cropBox.style.left = `${bx}px`;
+  els.cropBox.style.top = `${by}px`;
+  els.cropBox.style.width = `${bw}px`;
+  els.cropBox.style.height = `${bh}px`;
+  // Dim everything outside the box, confined to the image area.
+  const setShade = (el, x, y, w, h) => {
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.width = `${Math.max(0, w)}px`;
+    el.style.height = `${Math.max(0, h)}px`;
+  };
+  setShade(els.shades.top, ox, oy, rect.width, by - oy);
+  setShade(els.shades.bottom, ox, by + bh, rect.width, oy + rect.height - by - bh);
+  setShade(els.shades.left, ox, by, bx - ox, bh);
+  setShade(els.shades.right, bx + bw, by, ox + rect.width - bx - bw, bh);
+  // Park the apply button just below the box (above it when space is tight).
+  const btn = els.cropFloatApply;
+  const btnW = btn.offsetWidth || 90;
+  const btnH = btn.offsetHeight || 30;
+  const layerW = wrapRect.width;
+  btn.style.left = `${Math.min(Math.max(4, bx + bw - btnW), Math.max(4, layerW - btnW - 4))}px`;
+  let btnY = by + bh + 6;
+  if (btnY + btnH > oy + rect.height - 4) btnY = by - btnH - 6;
+  if (btnY < oy + 4) btnY = by + 6;
+  btn.style.top = `${btnY}px`;
   const abs = draftAbsDims();
   els.btnCropApply.textContent = `Apply crop ${abs.w} × ${abs.h}`;
   els.btnCropRemove.disabled = !getStep("crop");
+}
+
+function applyCrop() {
+  if (!S.bitmap || S.activeTool !== "crop" || !S.cropDraft) return;
+  setStep("crop", { rel: { ...S.cropDraft } });
+  afterStepsChanged();
+  closeTool(); // reveal the cropped result; reopen the step to refine
+}
+
+function removeCrop() {
+  if (!S.bitmap) return;
+  setStep("crop", null);
+  S.cropDraft = defaultCropRel(cropInputDims());
+  afterStepsChanged();
+  closeTool();
 }
 
 /** Write a CSS-px box (relative to canvas top-left) back to the draft. */
@@ -1107,16 +1149,23 @@ function wireEvents() {
     S.cropDraft = defaultCropRel(cropInputDims());
     layoutCropBox();
   });
-  els.btnCropApply.addEventListener("click", () => {
-    if (!S.bitmap || !S.cropDraft) return;
-    setStep("crop", { rel: { ...S.cropDraft } });
-    afterStepsChanged();
+  els.btnCropApply.addEventListener("click", applyCrop);
+  els.btnCropRemove.addEventListener("click", removeCrop);
+  els.cropFloatApply.addEventListener("click", (e) => {
+    e.stopPropagation();
+    applyCrop();
   });
-  els.btnCropRemove.addEventListener("click", () => {
-    if (!S.bitmap) return;
-    setStep("crop", null);
-    S.cropDraft = defaultCropRel(cropInputDims());
-    afterStepsChanged();
+  els.cropBox.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    applyCrop();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!S.activeTool) return;
+    const tag = e.target.tagName || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (e.key === "Escape") closeTool();
+    // Enter applies, unless a button is focused (it handles Enter itself).
+    else if (e.key === "Enter" && tag !== "BUTTON" && S.activeTool === "crop") applyCrop();
   });
 
   // Resize panel.

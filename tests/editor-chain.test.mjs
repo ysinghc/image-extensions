@@ -43,6 +43,22 @@ test("steps are ordered, editable, and removable", () => {
   assert.ok(/stepSummary/.test(js), "each step must summarize what it did");
 });
 
+test("crop dimming stays inside the preview", () => {
+  const css = read("src/editor.css");
+  assert.ok(!/9999px/.test(css), "must not dim the page with a spread shadow");
+  const html = read("src/editor.html");
+  assert.ok(/class="shade/.test(html), "crop overlay must use confined shade regions");
+});
+
+test("crop offers an obvious apply action at the selection", () => {
+  const html = read("src/editor.html");
+  assert.ok(/id="cropFloatApply"/.test(html), "overlay must carry a floating apply button");
+  const js = read("src/editor.js");
+  assert.ok(/cropFloatApply/.test(js), "must wire the floating apply button");
+  assert.ok(/dblclick/.test(js), "double-clicking the box must apply the crop");
+  assert.ok(/function applyCrop/.test(js), "must share one apply path");
+});
+
 test("export stays a single terminal section", () => {
   const html = read("src/editor.html");
   assert.ok(/id="exportCard"/.test(html), "must have #exportCard");
