@@ -116,20 +116,6 @@ export function buildFileName(base, w, h, ext, suffix = "") {
   return `${clean}-${w}x${h}${mid}.${ext}`;
 }
 
-/**
- * Clamp a crop rect {x,y,w,h} (in source pixels) into the image bounds.
- * Returns null when the crop is empty/full-image (caller can skip cropping).
- */
-export function normalizeCrop(crop, imgW, imgH) {
-  if (!crop) return null;
-  const x = clampInt(crop.x, 0, Math.max(0, imgW - 1));
-  const y = clampInt(crop.y, 0, Math.max(0, imgH - 1));
-  const w = clampInt(crop.w, 1, imgW - x);
-  const h = clampInt(crop.h, 1, imgH - y);
-  if (x === 0 && y === 0 && w === imgW && h === imgH) return null;
-  return { x, y, w, h };
-}
-
 // ---------------------------------------------------------------------------
 // Browser-only: canvas pipeline
 // ---------------------------------------------------------------------------
@@ -223,18 +209,17 @@ function makeCanvas(w, h) {
 
 /**
  * Render the full pipeline to a canvas:
- * crop -> rotate/flip -> resize -> optional grayscale.
- * opts: { crop, rotate (0|90|180|270), flipH, flipV, grayscale, outW, outH,
+ * rotate/flip -> resize -> optional grayscale.
+ * opts: { rotate (0|90|180|270), flipH, flipV, grayscale, outW, outH,
  *         background (css color or null for transparency) }
  */
 export function renderToCanvas(src, opts = {}) {
   const { w: srcW, h: srcH } = bitmapSize(src);
   if (!srcW || !srcH) throw new Error("Empty image source");
-  const crop = normalizeCrop(opts.crop, srcW, srcH);
-  const sx = crop ? crop.x : 0;
-  const sy = crop ? crop.y : 0;
-  const sw = crop ? crop.w : srcW;
-  const sh = crop ? crop.h : srcH;
+  const sx = 0;
+  const sy = 0;
+  const sw = srcW;
+  const sh = srcH;
 
   const rotate = [0, 90, 180, 270].includes(opts.rotate) ? opts.rotate : 0;
   const { w: orientedW, h: orientedH } = rotateDims(sw, sh, rotate);
@@ -256,7 +241,7 @@ export function renderToCanvas(src, opts = {}) {
   if (opts.flipV) ctx.scale(1, -1);
   ctx.rotate((rotate * Math.PI) / 180);
   if (opts.grayscale) ctx.filter = "grayscale(1)";
-  // After transforms, draw the cropped source rect centered, scaled to output.
+  // After transforms, draw the source rect centered, scaled to output.
   const dw = rotate === 90 || rotate === 270 ? outH : outW;
   const dh = rotate === 90 || rotate === 270 ? outW : outH;
   ctx.imageSmoothingQuality = "high";

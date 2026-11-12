@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-12
 
-ImageForge converts, resizes, crops, and compresses images **entirely on your
+ImageForge converts, resizes, and compresses images **entirely on your
 device**. This policy describes the little data access involved.
 
 ## Data we collect

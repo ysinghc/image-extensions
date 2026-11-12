@@ -4,7 +4,7 @@
 
 A Swiss-army-knife extension for everyday image chores: converting that WebP you
 just found into a JPEG for a form, shrinking a photo under a KB limit,
-cropping a screenshot, or exporting an icon at 2x/3x pixel ratio.
+or exporting an icon at 2x/3x pixel ratio.
 
 Everything runs locally in your browser. No uploads, no accounts.
 
@@ -16,7 +16,6 @@ Everything runs locally in your browser. No uploads, no accounts.
   paste from clipboard (Ctrl+V), or right-click any web image
 - **Resize**: exact pixels, scale % / pixel ratio (25%–300%), or fit-inside
   presets (1920 → 256)
-- **Crop** with a draggable box and aspect presets (1:1, 4:3, 16:9, …)
 - **Quality slider** for lossy formats, JPEG/BMP matte colour for transparency
 - **File-size limit**: enter “≤ 50 KB” and it lowers quality first, then
   shrinks pixels until it fits
@@ -61,7 +60,7 @@ src/
   manifest.firefox.json   Firefox MV3 manifest (background scripts)
   background.js           context menus + quick downloads (no modules, both browsers)
   popup.html/css/js       toolbar popup: quick convert & download
-  editor.html/css/js      full editor tab: crop, resize, compress-to-size…
+  editor.html/css/js      full editor tab: resize, rotate, adjust, compress-to-size…
   lib/image-core.js       shared conversion pipeline (ES module, zero deps)
   icons/                  SVG + PNG icon set
 tests/core.test.mjs       unit tests for the pure core (node:test)
@@ -88,7 +87,7 @@ git tag v1.0.0 && git push origin v1.0.0
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process.
 
 `src/lib/image-core.js` is a dependency-free ES module: pure helpers
-(dimension math, file names, crop clamping) plus a canvas pipeline
+(dimension math, file names, size fitting) plus a canvas pipeline
 (`renderToCanvas`, `encodePipeline`, `compressToTargetSize`). The same file
 is imported by the popup/editor pages and by the Node tests.
 

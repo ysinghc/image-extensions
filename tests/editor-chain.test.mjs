@@ -23,13 +23,13 @@ test("editor has a step chain with origin and output endpoints", () => {
 
 test("editor offers one tool at a time through a single panel", () => {
   const html = read("src/editor.html");
-  for (const tool of ["crop", "resize", "rotate", "adjust"]) {
+  for (const tool of ["resize", "rotate", "adjust"]) {
     assert.ok(new RegExp(`data-tool="${tool}"`).test(html), `tool grid must include ${tool}`);
     assert.ok(new RegExp(`id="panel-${tool}"`).test(html), `must have #panel-${tool}`);
   }
   assert.ok(/id="toolPanel"/.test(html), "must have a single shared #toolPanel");
   const panels = html.match(/id="panel-\w+"/g) || [];
-  assert.equal(panels.length, 4);
+  assert.equal(panels.length, 3);
   const js = read("src/editor.js");
   assert.ok(/function openTool/.test(js) && /function closeTool/.test(js), "must open/close one tool");
 });
@@ -43,20 +43,10 @@ test("steps are ordered, editable, and removable", () => {
   assert.ok(/stepSummary/.test(js), "each step must summarize what it did");
 });
 
-test("crop dimming stays inside the preview", () => {
-  const css = read("src/editor.css");
-  assert.ok(!/9999px/.test(css), "must not dim the page with a spread shadow");
-  const html = read("src/editor.html");
-  assert.ok(/class="shade/.test(html), "crop overlay must use confined shade regions");
-});
-
-test("crop offers an obvious apply action at the selection", () => {
-  const html = read("src/editor.html");
-  assert.ok(/id="cropFloatApply"/.test(html), "overlay must carry a floating apply button");
-  const js = read("src/editor.js");
-  assert.ok(/cropFloatApply/.test(js), "must wire the floating apply button");
-  assert.ok(/dblclick/.test(js), "double-clicking the box must apply the crop");
-  assert.ok(/function applyCrop/.test(js), "must share one apply path");
+test("crop feature is fully removed", () => {
+  for (const p of ["src/editor.html", "src/editor.js", "src/editor.css", "src/lib/image-core.js"]) {
+    assert.ok(!/crop/i.test(read(p)), `${p} must not mention crop`);
+  }
 });
 
 test("export stays a single terminal section", () => {

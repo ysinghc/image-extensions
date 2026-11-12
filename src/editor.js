@@ -12,7 +12,6 @@ import {
   sanitizeBaseName,
   baseNameFromUrl,
   buildFileName,
-  normalizeCrop,
   detectEncodeSupport,
   firstSupportedFormat,
   loadBitmap,
@@ -30,18 +29,14 @@ const els = {
   btnNew: $("btnNew"), btnDownloadTop: $("btnDownloadTop"), topOut: $("topOut"),
   dropzone: $("dropzone"), emptyState: $("emptyState"),
   previewWrap: $("previewWrap"), previewCanvas: $("previewCanvas"),
-  cropLayer: $("cropLayer"), cropBox: $("cropBox"),
-  shades: { top: $("shadeTop"), right: $("shadeRight"), bottom: $("shadeBottom"), left: $("shadeLeft") },
-  cropFloatApply: $("cropFloatApply"), srcInfo: $("srcInfo"),
+  srcInfo: $("srcInfo"),
   stepsList: $("stepsList"), noSteps: $("noSteps"),
   toolGrid: $("toolGrid"), toolPanel: $("toolPanel"),
   toolTitle: $("toolTitle"), toolClose: $("toolClose"),
   panels: {
-    crop: $("panel-crop"), resize: $("panel-resize"),
+    resize: $("panel-resize"),
     rotate: $("panel-rotate"), adjust: $("panel-adjust"),
   },
-  cropAspect: $("cropAspect"), btnCropReset: $("btnCropReset"),
-  btnCropApply: $("btnCropApply"), btnCropRemove: $("btnCropRemove"),
   resizeIO: $("resizeIO"), outW: $("outW"), outH: $("outH"),
   lockAspect: $("lockAspect"), scaleRow: $("scaleRow"), fitRow: $("fitRow"),
   btnResizeReset: $("btnResizeReset"),
@@ -58,7 +53,6 @@ const els = {
 };
 
 // Steps: ordered pixel ops, each feeding the next.
-//   crop   { rel: {x,y,w,h} }            relative coords, 0..1
 //   resize { mode:'scale', scale } | { mode:'dims', w, h }
 //   rotate { rotate: 0|90|180|270, flipH, flipV }
 //   adjust { grayscale: bool }
@@ -67,7 +61,7 @@ const S = {
   bitmap: null, epoch: 0,
   srcW: 0, srcH: 0, srcBytes: 0, baseName: "image",
   steps: [],
-  activeTool: null, cropDraft: null, cropAspect: "free",
+  activeTool: null,
   format: "png", quality: 85, matte: "#ffffff",
   fit: null, // { scale, quality, targetBytes }
   filenameDirty: false,
@@ -77,7 +71,7 @@ const S = {
   fitting: false,
 };
 
-const TOOL_TITLES = { crop: "Crop", resize: "Resize", rotate: "Rotate & flip", adjust: "Adjust" };
+const TOOL_TITLES = { resize: "Resize", rotate: "Rotate & flip", adjust: "Adjust" };
 const SCALE_PRESETS = [25, 50, 75, 100, 150, 200, 300];
 const FIT_PRESETS = [
   { label: "1920", max: 1920 },
@@ -153,12 +147,7 @@ function renderPipeline(upto = Infinity) {
   let h = S.srcH;
   const log = [];
   for (const st of S.steps.slice(0, upto)) {
-    if (st.tool === "crop") {
-      const r = st.params.rel;
-      const abs = normalizeCrop({ x: r.x * w, y: r.y * h, w: r.w * w, h: r.h * h }, w, h)
-        || { x: 0, y: 0, w, h };
-      src = renderToCanvas(src, { crop: abs, outW: abs.w, outH: abs.h });
-    } else if (st.tool === "rotate") {
+    if (st.tool === "rotate") {
       const d = rotateDims(w, h, st.params.rotate);
       src = renderToCanvas(src, {
         rotate: st.params.rotate, flipH: st.params.flipH, flipV: st.params.flipV,
@@ -297,12 +286,6 @@ function buildScalePills() {
 // ---------------------------------------------------------------- step list
 
 function stepSummary(st, input) {
-  if (st.tool === "crop") {
-    const r = st.params.rel;
-    const abs = normalizeCrop({ x: r.x * input.w, y: r.y * input.h, w: r.w * input.w, h: r.h * input.h }, input.w, input.h)
-      || { w: input.w, h: input.h };
-    return `to ${dimsStr(abs)}`;
-  }
   if (st.tool === "resize") {
     const p = st.params;
     if (p.mode === "scale") {
@@ -421,10 +404,6 @@ function openTool(tool) {
   for (const [name, panel] of Object.entries(els.panels)) {
     panel.classList.toggle("hidden", name !== tool);
   }
-  if (tool === "crop") {
-    const committed = getStep("crop");
-    S.cropDraft = committed ? { ...committed.params.rel } : defaultCropRel(cropInputDims());
-  }
   syncActivePanel();
   refreshPreview();
   renderSteps();
@@ -432,7 +411,6 @@ function openTool(tool) {
 
 function closeTool() {
   S.activeTool = null;
-  S.cropDraft = null;
   els.toolPanel.classList.add("hidden");
   refreshPreview();
   renderSteps();
@@ -443,7 +421,6 @@ function syncActivePanel() {
   if (S.activeTool === "resize") syncResizePanel();
   else if (S.activeTool === "rotate") syncRotatePanel();
   else if (S.activeTool === "adjust") syncAdjustPanel();
-  else if (S.activeTool === "crop") layoutCropBox();
 }
 
 function syncResizePanel() {
@@ -537,8 +514,7 @@ function syncAdjustPanel() {
 
 function refreshPreview() {
   if (!S.bitmap) return;
-  const cropMode = S.activeTool === "crop";
-  const base = cropMode ? renderPipeline(cropStepUpTo()) : renderPipeline();
+  const base = renderPipeline();
   const s = Math.min(1, PREVIEW_MAX_SIDE / Math.max(base.w, base.h));
   const pw = Math.max(1, Math.round(base.w * s));
   const ph = Math.max(1, Math.round(base.h * s));
@@ -553,201 +529,10 @@ function refreshPreview() {
 
   els.emptyState.classList.add("hidden");
   els.previewWrap.classList.remove("hidden");
-  layoutCropBox();
   els.srcInfo.textContent =
     `Original: ${dimsStr({ w: S.srcW, h: S.srcH })}` +
     (S.srcBytes ? ` · ${formatFileSize(S.srcBytes)}` : "") +
-    (cropMode
-      ? ` · cropping on ${dimsStr({ w: base.w, h: base.h })} input`
-      : ` · preview ${dimsStr({ w: base.w, h: base.h })}`);
-}
-
-// --------------------------------------------------------------------- crop
-
-/** Steps before the crop step (or all steps when appending). */
-function cropStepUpTo() {
-  const i = stepIndex("crop");
-  return i < 0 ? Infinity : i;
-}
-
-function cropInputDims() {
-  const i = stepIndex("crop");
-  if (i < 0) {
-    const full = renderPipeline();
-    return { w: full.w, h: full.h };
-  }
-  return inputDimsAt(i);
-}
-
-function aspectRatio() {
-  if (S.cropAspect === "free") return null;
-  const [a, b] = S.cropAspect.split(":").map(Number);
-  return a / b;
-}
-
-/** Default centered box (relative coords) honoring the aspect lock. */
-function defaultCropRel(input) {
-  const ratio = aspectRatio();
-  let w = 0.8;
-  let h = 0.8;
-  if (ratio) {
-    if ((w * input.w) / (h * input.h) > ratio) w = (h * input.h * ratio) / input.w;
-    else h = (w * input.w / ratio) / input.h;
-    w = Math.min(w, 1);
-    h = Math.min(h, 1);
-  }
-  return { x: (1 - w) / 2, y: (1 - h) / 2, w, h };
-}
-
-function draftAbsDims() {
-  const input = cropInputDims();
-  const d = S.cropDraft || defaultCropRel(input);
-  return {
-    w: Math.max(1, Math.round(d.w * input.w)),
-    h: Math.max(1, Math.round(d.h * input.h)),
-  };
-}
-
-function layoutCropBox() {
-  const show = S.activeTool === "crop" && !!S.bitmap;
-  els.cropLayer.classList.toggle("hidden", !show);
-  if (!show) return;
-  if (!S.cropDraft) S.cropDraft = defaultCropRel(cropInputDims());
-  const input = cropInputDims();
-  const rect = els.previewCanvas.getBoundingClientRect();
-  const wrapRect = els.previewWrap.getBoundingClientRect();
-  const ox = rect.left - wrapRect.left;
-  const oy = rect.top - wrapRect.top;
-  const kx = rect.width / input.w;
-  const ky = rect.height / input.h;
-  const d = S.cropDraft;
-  const bx = ox + d.x * input.w * kx;
-  const by = oy + d.y * input.h * ky;
-  const bw = Math.max(2, d.w * input.w * kx);
-  const bh = Math.max(2, d.h * input.h * ky);
-  els.cropBox.style.left = `${bx}px`;
-  els.cropBox.style.top = `${by}px`;
-  els.cropBox.style.width = `${bw}px`;
-  els.cropBox.style.height = `${bh}px`;
-  // Dim everything outside the box, confined to the image area.
-  const setShade = (el, x, y, w, h) => {
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    el.style.width = `${Math.max(0, w)}px`;
-    el.style.height = `${Math.max(0, h)}px`;
-  };
-  setShade(els.shades.top, ox, oy, rect.width, by - oy);
-  setShade(els.shades.bottom, ox, by + bh, rect.width, oy + rect.height - by - bh);
-  setShade(els.shades.left, ox, by, bx - ox, bh);
-  setShade(els.shades.right, bx + bw, by, ox + rect.width - bx - bw, bh);
-  // Park the apply button just below the box (above it when space is tight).
-  const btn = els.cropFloatApply;
-  const btnW = btn.offsetWidth || 90;
-  const btnH = btn.offsetHeight || 30;
-  const layerW = wrapRect.width;
-  btn.style.left = `${Math.min(Math.max(4, bx + bw - btnW), Math.max(4, layerW - btnW - 4))}px`;
-  let btnY = by + bh + 6;
-  if (btnY + btnH > oy + rect.height - 4) btnY = by - btnH - 6;
-  if (btnY < oy + 4) btnY = by + 6;
-  btn.style.top = `${btnY}px`;
-  const abs = draftAbsDims();
-  els.btnCropApply.textContent = `Apply crop ${abs.w} × ${abs.h}`;
-  els.btnCropRemove.disabled = !getStep("crop");
-}
-
-function applyCrop() {
-  if (!S.bitmap || S.activeTool !== "crop" || !S.cropDraft) return;
-  setStep("crop", { rel: { ...S.cropDraft } });
-  afterStepsChanged();
-  closeTool(); // reveal the cropped result; reopen the step to refine
-}
-
-function removeCrop() {
-  if (!S.bitmap) return;
-  setStep("crop", null);
-  S.cropDraft = defaultCropRel(cropInputDims());
-  afterStepsChanged();
-  closeTool();
-}
-
-/** Write a CSS-px box (relative to canvas top-left) back to the draft. */
-function commitCropCss(x, y, w, h) {
-  const input = cropInputDims();
-  const rect = els.previewCanvas.getBoundingClientRect();
-  const kx = rect.width / input.w;
-  const ky = rect.height / input.h;
-  const clamp01 = (v) => Math.min(1, Math.max(0, v));
-  S.cropDraft = {
-    x: clamp01(x / kx / input.w),
-    y: clamp01(y / ky / input.h),
-    w: Math.min(1, Math.max(0.01, w / kx / input.w)),
-    h: Math.min(1, Math.max(0.01, h / ky / input.h)),
-  };
-  S.cropDraft.w = Math.min(S.cropDraft.w, 1 - S.cropDraft.x);
-  S.cropDraft.h = Math.min(S.cropDraft.h, 1 - S.cropDraft.y);
-  layoutCropBox();
-}
-
-function setupCropDrag() {
-  let drag = null;
-  const MIN = 12;
-
-  els.cropBox.addEventListener("pointerdown", (e) => {
-    if (!S.bitmap || S.activeTool !== "crop") return;
-    e.preventDefault();
-    els.cropBox.setPointerCapture(e.pointerId);
-    const boxRect = els.cropBox.getBoundingClientRect();
-    const canvasRect = els.previewCanvas.getBoundingClientRect();
-    drag = {
-      handle: e.target.dataset?.h || null,
-      startX: e.clientX, startY: e.clientY,
-      orig: {
-        x: boxRect.left - canvasRect.left,
-        y: boxRect.top - canvasRect.top,
-        w: boxRect.width, h: boxRect.height,
-      },
-      bounds: { w: canvasRect.width, h: canvasRect.height },
-    };
-  });
-
-  els.cropBox.addEventListener("pointermove", (e) => {
-    if (!drag) return;
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-    const ratio = aspectRatio();
-    let { x, y, w, h } = drag.orig;
-
-    if (!drag.handle) {
-      x = Math.min(Math.max(0, x + dx), drag.bounds.w - w);
-      y = Math.min(Math.max(0, y + dy), drag.bounds.h - h);
-    } else {
-      if (drag.handle.includes("e")) w = drag.orig.w + dx;
-      if (drag.handle.includes("s")) h = drag.orig.h + dy;
-      if (drag.handle.includes("w")) { x = drag.orig.x + dx; w = drag.orig.w - dx; }
-      if (drag.handle.includes("n")) { y = drag.orig.y + dy; h = drag.orig.h - dy; }
-      if (ratio) {
-        if (Math.abs(dx) >= Math.abs(dy)) h = w / ratio;
-        else w = h * ratio;
-        if (drag.handle.includes("w")) x = drag.orig.x + drag.orig.w - w;
-        if (drag.handle.includes("n")) y = drag.orig.y + drag.orig.h - h;
-      }
-      w = Math.max(MIN, w);
-      h = Math.max(MIN, h);
-      x = Math.min(Math.max(0, x), drag.bounds.w - MIN);
-      y = Math.min(Math.max(0, y), drag.bounds.h - MIN);
-      w = Math.min(w, drag.bounds.w - x);
-      h = Math.min(h, drag.bounds.h - y);
-      if (ratio) {
-        if (w / h > ratio) w = h * ratio;
-        else h = w / ratio;
-      }
-    }
-    commitCropCss(x, y, w, h);
-  });
-
-  const end = () => { drag = null; };
-  els.cropBox.addEventListener("pointerup", end);
-  els.cropBox.addEventListener("pointercancel", end);
+    ` · preview ${dimsStr({ w: base.w, h: base.h })}`;
 }
 
 // ------------------------------------------------------------------ encode
@@ -926,7 +711,6 @@ async function setSource(blob, baseName) {
   S.baseName = sanitizeBaseName(baseName, "image");
   S.steps = [];
   S.activeTool = null;
-  S.cropDraft = null;
   S.fit = null;
   S.filenameDirty = false;
   S.lastBlob = null;
@@ -948,7 +732,7 @@ function resetAll() {
   if (S.bitmap && S.bitmap.close) S.bitmap.close();
   Object.assign(S, {
     bitmap: null, srcW: 0, srcH: 0, srcBytes: 0, baseName: "image",
-    steps: [], activeTool: null, cropDraft: null, fit: null,
+    steps: [], activeTool: null, fit: null,
     filenameDirty: false, lastBlob: null, lastEncodeKey: "",
     pipeCache: { key: "", canvas: null, w: 0, h: 0, log: [] },
   });
@@ -1119,11 +903,8 @@ function wireEvents() {
       const i = parseInt(actionBtn.dataset.i, 10);
       const action = actionBtn.dataset.action;
       if (action === "remove") {
-        const [removed] = S.steps.splice(i, 1);
+        S.steps.splice(i, 1);
         S.pipeCache.key = "";
-        if (S.activeTool === removed.tool && removed.tool === "crop") {
-          S.cropDraft = defaultCropRel(cropInputDims());
-        }
         afterStepsChanged();
       } else if (action === "up") {
         moveStep(i, -1);
@@ -1138,34 +919,11 @@ function wireEvents() {
     if (card) openTool(S.steps[parseInt(card.dataset.edit, 10)].tool);
   });
 
-  // Crop panel.
-  els.cropAspect.addEventListener("change", () => {
-    S.cropAspect = els.cropAspect.value;
-    S.cropDraft = defaultCropRel(cropInputDims());
-    layoutCropBox();
-  });
-  els.btnCropReset.addEventListener("click", () => {
-    if (!S.bitmap) return;
-    S.cropDraft = defaultCropRel(cropInputDims());
-    layoutCropBox();
-  });
-  els.btnCropApply.addEventListener("click", applyCrop);
-  els.btnCropRemove.addEventListener("click", removeCrop);
-  els.cropFloatApply.addEventListener("click", (e) => {
-    e.stopPropagation();
-    applyCrop();
-  });
-  els.cropBox.addEventListener("dblclick", (e) => {
-    e.preventDefault();
-    applyCrop();
-  });
   document.addEventListener("keydown", (e) => {
     if (!S.activeTool) return;
     const tag = e.target.tagName || "";
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     if (e.key === "Escape") closeTool();
-    // Enter applies, unless a button is focused (it handles Enter itself).
-    else if (e.key === "Enter" && tag !== "BUTTON" && S.activeTool === "crop") applyCrop();
   });
 
   // Resize panel.
@@ -1216,8 +974,6 @@ function wireEvents() {
   els.btnDownload.addEventListener("click", download);
   els.btnDownloadTop.addEventListener("click", download);
   els.btnCopy.addEventListener("click", doCopy);
-
-  window.addEventListener("resize", debounce(() => layoutCropBox(), 100));
 }
 
 // --------------------------------------------------------------------- init
@@ -1228,7 +984,6 @@ async function init() {
   buildFormatPills();
   syncFormatUI();
   buildScalePills();
-  setupCropDrag();
   wireEvents();
   renderSteps();
   if (!(await consumeSessionImport())) await consumeQueryImport();

@@ -14,7 +14,6 @@ import {
   sanitizeBaseName,
   baseNameFromUrl,
   buildFileName,
-  normalizeCrop,
   compressToTargetSize,
 } from "../src/lib/image-core.js";
 
@@ -87,14 +86,6 @@ test("file names", () => {
   assert.equal(baseNameFromUrl("not a url"), "not a url");
   assert.equal(buildFileName("pic", 100, 50, "jpg"), "pic-100x50.jpg");
   assert.equal(buildFileName("pic", 100, 50, "jpg", "50kb"), "pic-100x50-50kb.jpg");
-});
-
-test("normalizeCrop", () => {
-  assert.equal(normalizeCrop(null, 10, 10), null);
-  assert.equal(normalizeCrop({ x: 0, y: 0, w: 10, h: 10 }, 10, 10), null);
-  assert.deepEqual(normalizeCrop({ x: 2, y: 2, w: 5, h: 5 }, 10, 10), { x: 2, y: 2, w: 5, h: 5 });
-  assert.deepEqual(normalizeCrop({ x: -5, y: -5, w: 99, h: 99 }, 10, 10), null); // clamps to full
-  assert.deepEqual(normalizeCrop({ x: 8, y: 8, w: 5, h: 5 }, 10, 10), { x: 8, y: 8, w: 2, h: 2 });
 });
 
 test("compressToTargetSize binary-searches quality then scale", async () => {

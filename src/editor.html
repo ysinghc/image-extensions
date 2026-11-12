@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ImageForge — convert, resize, crop, compress</title>
+<title>ImageForge — convert, resize, compress</title>
 <link rel="stylesheet" href="editor.css">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 </head>
@@ -13,7 +13,7 @@
     <img src="icons/icon.svg" alt="" width="28" height="28">
     <div>
       <h1>ImageForge</h1>
-      <p>convert &middot; resize &middot; crop &middot; compress</p>
+      <p>convert &middot; resize &middot; compress</p>
     </div>
   </div>
   <div class="top-actions">
@@ -42,19 +42,6 @@
       </div>
       <div id="previewWrap" class="preview-wrap hidden">
         <canvas id="previewCanvas"></canvas>
-        <div id="cropLayer" class="crop-layer hidden">
-          <div class="shade" id="shadeTop"></div>
-          <div class="shade" id="shadeRight"></div>
-          <div class="shade" id="shadeBottom"></div>
-          <div class="shade" id="shadeLeft"></div>
-          <div id="cropBox" class="crop-box" title="Drag to move, drag corners to resize, double-click to crop">
-            <span class="handle nw" data-h="nw"></span>
-            <span class="handle ne" data-h="ne"></span>
-            <span class="handle sw" data-h="sw"></span>
-            <span class="handle se" data-h="se"></span>
-          </div>
-          <button id="cropFloatApply" class="crop-float" type="button" title="Crop to this selection">Crop</button>
-        </div>
       </div>
     </div>
     <div class="source-meta"><span id="srcInfo">No image loaded.</span></div>
@@ -70,7 +57,6 @@
     <section class="group" id="toolsCard" aria-label="Tools">
       <h2>Tools</h2>
       <div class="toolgrid" id="toolGrid" role="toolbar" aria-label="One tool at a time">
-        <button type="button" data-tool="crop"><span class="glyph" aria-hidden="true">&#9685;</span>Crop</button>
         <button type="button" data-tool="resize"><span class="glyph" aria-hidden="true">&#10530;</span>Resize</button>
         <button type="button" data-tool="rotate"><span class="glyph" aria-hidden="true">&#10227;</span>Rotate</button>
         <button type="button" data-tool="adjust"><span class="glyph" aria-hidden="true">&#9681;</span>Adjust</button>
@@ -80,28 +66,6 @@
         <div class="toolpanel-head">
           <h3 id="toolTitle">Tool</h3>
           <button id="toolClose" class="btn ghost small" aria-label="Close tool">&times;</button>
-        </div>
-
-        <div id="panel-crop" class="toolbody hidden">
-          <div class="row">
-            <label for="cropAspect">Aspect</label>
-            <select id="cropAspect">
-              <option value="free">Free</option>
-              <option value="1:1">1 : 1</option>
-              <option value="4:3">4 : 3</option>
-              <option value="3:4">3 : 4</option>
-              <option value="3:2">3 : 2</option>
-              <option value="2:3">2 : 3</option>
-              <option value="16:9">16 : 9</option>
-              <option value="9:16">9 : 16</option>
-            </select>
-            <button id="btnCropReset" class="btn small">Reset box</button>
-          </div>
-          <p class="hint">Drag the box, then Crop — or double-click the box, or press Enter.</p>
-          <div class="row btns">
-            <button id="btnCropApply" class="btn primary small grow">Apply crop</button>
-            <button id="btnCropRemove" class="btn small">Remove</button>
-          </div>
         </div>
 
         <div id="panel-resize" class="toolbody hidden">
