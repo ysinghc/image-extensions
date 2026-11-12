@@ -17,6 +17,8 @@
     </div>
   </div>
   <div class="top-actions">
+    <span id="topOut" class="top-out"></span>
+    <button id="btnDownloadTop" class="btn primary small">Download</button>
     <button id="btnNew" class="btn ghost" title="Close this image and start over">New image</button>
   </div>
 </header>
@@ -53,78 +55,105 @@
     <div class="source-meta"><span id="srcInfo">No image loaded.</span></div>
   </section>
 
-  <aside class="panel" aria-label="Image controls">
-    <section class="group">
-      <h2>Format</h2>
+  <aside class="panel" aria-label="Editing pipeline">
+    <section class="group" id="stepsCard" aria-label="Steps">
+      <h2>Steps</h2>
+      <ol id="stepsList" class="steps"></ol>
+      <p id="noSteps" class="hint">No edits yet — pick a tool below to start the chain.</p>
+    </section>
+
+    <section class="group" id="toolsCard" aria-label="Tools">
+      <h2>Tools</h2>
+      <div class="toolgrid" id="toolGrid" role="toolbar" aria-label="One tool at a time">
+        <button type="button" data-tool="crop"><span class="glyph" aria-hidden="true">&#9685;</span>Crop</button>
+        <button type="button" data-tool="resize"><span class="glyph" aria-hidden="true">&#10530;</span>Resize</button>
+        <button type="button" data-tool="rotate"><span class="glyph" aria-hidden="true">&#10227;</span>Rotate</button>
+        <button type="button" data-tool="adjust"><span class="glyph" aria-hidden="true">&#9681;</span>Adjust</button>
+      </div>
+
+      <div id="toolPanel" class="toolpanel hidden">
+        <div class="toolpanel-head">
+          <h3 id="toolTitle">Tool</h3>
+          <button id="toolClose" class="btn ghost small" aria-label="Close tool">&times;</button>
+        </div>
+
+        <div id="panel-crop" class="toolbody hidden">
+          <div class="row">
+            <label for="cropAspect">Aspect</label>
+            <select id="cropAspect">
+              <option value="free">Free</option>
+              <option value="1:1">1 : 1</option>
+              <option value="4:3">4 : 3</option>
+              <option value="3:4">3 : 4</option>
+              <option value="3:2">3 : 2</option>
+              <option value="2:3">2 : 3</option>
+              <option value="16:9">16 : 9</option>
+              <option value="9:16">9 : 16</option>
+            </select>
+            <button id="btnCropReset" class="btn small">Reset box</button>
+          </div>
+          <p class="hint">Drag the box on the preview, then apply.</p>
+          <div class="row btns">
+            <button id="btnCropApply" class="btn primary small grow">Apply crop</button>
+            <button id="btnCropRemove" class="btn small">Remove</button>
+          </div>
+        </div>
+
+        <div id="panel-resize" class="toolbody hidden">
+          <p class="io-line" id="resizeIO"></p>
+          <div class="row dims">
+            <label>W <input id="outW" type="number" min="1" max="16000"></label>
+            <label>H <input id="outH" type="number" min="1" max="16000"></label>
+            <label class="lock"><input id="lockAspect" type="checkbox" checked> Lock</label>
+          </div>
+          <div class="row"><span class="lbl">Scale</span></div>
+          <div id="scaleRow" class="pills small" aria-label="Scale presets"></div>
+          <div class="row"><span class="lbl">Fit inside</span></div>
+          <div id="fitRow" class="pills small" aria-label="Max-size presets"></div>
+          <div class="row btns">
+            <button id="btnResizeReset" class="btn small">Reset to original size</button>
+          </div>
+        </div>
+
+        <div id="panel-rotate" class="toolbody hidden">
+          <p class="io-line" id="rotateState"></p>
+          <div class="row btns">
+            <button id="btnRotL" class="btn small" title="Rotate 90° counter-clockwise">&#10226; 90&deg;</button>
+            <button id="btnRotR" class="btn small" title="Rotate 90° clockwise">&#10227; 90&deg;</button>
+            <button id="btnRot180" class="btn small" title="Rotate 180°">180&deg;</button>
+            <button id="btnFlipH" class="btn small" title="Flip horizontal">&#8646;</button>
+            <button id="btnFlipV" class="btn small" title="Flip vertical">&#8645;</button>
+          </div>
+          <div class="row btns">
+            <button id="btnRotateReset" class="btn small">Reset orientation</button>
+          </div>
+        </div>
+
+        <div id="panel-adjust" class="toolbody hidden">
+          <div class="row">
+            <label class="lock"><input id="grayscale" type="checkbox"> Grayscale</label>
+          </div>
+          <p class="hint">More adjustments will land here.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="group output" id="exportCard" aria-label="Export">
+      <h2>Export</h2>
       <div id="formatRow" class="pills" role="radiogroup" aria-label="Output format"></div>
       <div id="qualityRow" class="row">
         <label for="quality">Quality <span id="qualityVal">85</span>%</label>
         <input id="quality" type="range" min="1" max="100" value="85">
       </div>
       <div id="matteRow" class="row hidden">
-        <label for="matte">Matte (fills transparency)</label>
+        <label for="matte">Matte</label>
         <input id="matte" type="color" value="#ffffff">
       </div>
-    </section>
-
-    <section class="group">
-      <h2>Size</h2>
-      <div class="row dims">
-        <label>W <input id="outW" type="number" min="1" max="16000"></label>
-        <label>H <input id="outH" type="number" min="1" max="16000"></label>
-        <label class="lock"><input id="lockAspect" type="checkbox" checked> Lock</label>
-      </div>
-      <div class="row"><span class="lbl">Scale / pixel ratio</span></div>
-      <div id="scaleRow" class="pills small" aria-label="Scale presets"></div>
-      <div class="row"><span class="lbl">Fit inside</span></div>
-      <div id="fitRow" class="pills small" aria-label="Max-size presets"></div>
-      <p class="hint" id="cropBaseHint"></p>
-    </section>
-
-    <section class="group">
-      <h2>Crop</h2>
       <div class="row">
-        <label class="lock"><input id="cropEnabled" type="checkbox"> Crop image</label>
-        <select id="cropAspect" aria-label="Crop aspect ratio">
-          <option value="free">Free</option>
-          <option value="1:1">1 : 1</option>
-          <option value="4:3">4 : 3</option>
-          <option value="3:4">3 : 4</option>
-          <option value="3:2">3 : 2</option>
-          <option value="2:3">2 : 3</option>
-          <option value="16:9">16 : 9</option>
-          <option value="9:16">9 : 16</option>
-        </select>
-        <button id="btnCropReset" class="btn small">Reset</button>
-      </div>
-      <p class="hint">Drag the box on the preview to position the crop.</p>
-    </section>
-
-    <section class="group">
-      <h2>Adjust</h2>
-      <div class="row btns">
-        <button id="btnRotL" class="btn small" title="Rotate 90° counter-clockwise">&#10226; 90&deg;</button>
-        <button id="btnRotR" class="btn small" title="Rotate 90° clockwise">&#10227; 90&deg;</button>
-        <button id="btnRot180" class="btn small" title="Rotate 180°">180&deg;</button>
-        <button id="btnFlipH" class="btn small" title="Flip horizontal">&#8646;</button>
-        <button id="btnFlipV" class="btn small" title="Flip vertical">&#8645;</button>
-      </div>
-      <div class="row">
-        <label class="lock"><input id="grayscale" type="checkbox"> Grayscale</label>
-      </div>
-    </section>
-
-    <section class="group">
-      <h2>File size limit</h2>
-      <div class="row">
-        <label class="target">Max <input id="targetKB" type="number" min="1" max="51200" placeholder="e.g. 50"> KB</label>
+        <label class="target">Limit <input id="targetKB" type="number" min="1" max="51200" placeholder="e.g. 50"> KB</label>
         <button id="btnFitSize" class="btn small primary">Fit to size</button>
       </div>
       <p class="hint" id="fitStatus">Lowers quality first, then shrinks pixels if needed.</p>
-    </section>
-
-    <section class="group output">
-      <h2>Output</h2>
       <label class="filelabel" for="fileName">File name</label>
       <input id="fileName" type="text" spellcheck="false">
       <p class="out-line" id="outLine">—</p>

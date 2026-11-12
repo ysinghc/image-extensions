@@ -22,7 +22,7 @@ import {
 const $ = (id) => document.getElementById(id);
 const els = {
   btnEditor: $("btnEditor"), urlInput: $("urlInput"), btnGo: $("btnGo"),
-  btnUpload: $("btnUpload"), fileInput: $("fileInput"), btnPaste: $("btnPaste"),
+  btnUpload: $("btnUpload"), btnPaste: $("btnPaste"), dropHint: $("dropHint"),
   loadedGroup: $("loadedGroup"), thumb: $("thumb"), srcInfo: $("srcInfo"),
   formatRow: $("formatRow"), qualityRow: $("qualityRow"),
   quality: $("quality"), qualityVal: $("qualityVal"),
@@ -186,6 +186,16 @@ function blobToDataUrl(blob) {
   });
 }
 
+async function openEditorForPick() {
+  const api = extApi();
+  if (!api?.tabs?.create || !api?.runtime?.getURL) {
+    setStatus("Cannot open the editor from here.", "bad");
+    return;
+  }
+  await api.tabs.create({ url: api.runtime.getURL("editor.html?pick=1") });
+  window.close();
+}
+
 async function openEditor(withCurrent) {
   const api = extApi();
   if (!api?.tabs?.create || !api?.runtime?.getURL) {
@@ -225,11 +235,36 @@ function wireEvents() {
   els.urlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") els.btnGo.click();
   });
-  els.btnUpload.addEventListener("click", () => els.fileInput.click());
-  els.fileInput.addEventListener("change", () => {
-    const f = els.fileInput.files[0];
-    if (f) loadFromBlob(f, f.name).catch((e) => setStatus(e.message, "bad"));
-    els.fileInput.value = "";
+  // No native picker here on purpose: opening one steals focus, which closes
+  // the popup and destroys the picked file. Uploads go via the editor tab.
+  els.btnUpload.addEventListener("click", () => openEditorForPick());
+
+  let dragDepth = 0;
+  for (const ev of ["dragenter", "dragover"]) {
+    document.addEventListener(ev, (e) => {
+      if (![...(e.dataTransfer?.types || [])].includes("Files")) return;
+      e.preventDefault();
+      if (ev === "dragenter") dragDepth++;
+      document.body.classList.add("dragover");
+      els.dropHint.classList.remove("hidden");
+    });
+  }
+  document.addEventListener("dragleave", (e) => {
+    e.preventDefault();
+    if (--dragDepth <= 0) {
+      dragDepth = 0;
+      document.body.classList.remove("dragover");
+      els.dropHint.classList.add("hidden");
+    }
+  });
+  document.addEventListener("drop", (e) => {
+    dragDepth = 0;
+    document.body.classList.remove("dragover");
+    els.dropHint.classList.add("hidden");
+    const f = [...(e.dataTransfer?.files || [])].find((x) => x.type.startsWith("image/"));
+    if (!f) return;
+    e.preventDefault();
+    loadFromBlob(f, f.name).catch((err) => setStatus(err.message, "bad"));
   });
   els.btnPaste.addEventListener("click", async () => {
     try {

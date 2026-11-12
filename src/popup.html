@@ -21,12 +21,12 @@
     <button id="btnGo" class="btn primary small">Go</button>
   </div>
   <div class="btnrow">
-    <button id="btnUpload" class="btn small">Upload</button>
-    <input id="fileInput" type="file" accept="image/*" hidden>
+    <button id="btnUpload" class="btn small" title="Pick a file from your computer (opens the full editor)">Upload…</button>
     <button id="btnPaste" class="btn small">Paste</button>
-    <span class="tip">or press Ctrl+V</span>
+    <span class="tip">or drop a file here, Ctrl+V</span>
   </div>
 </section>
+<div id="dropHint" class="drop-hint hidden">Drop image to load</div>
 
 <section class="group hidden" id="loadedGroup">
   <div class="preview">
